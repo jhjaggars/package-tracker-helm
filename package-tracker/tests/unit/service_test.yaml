@@ -1,0 +1,168 @@
+suite: test service template
+templates:
+  - service.yaml
+tests:
+  - it: should render service with default values
+    template: service.yaml
+    release:
+      name: test-release
+    asserts:
+      - isKind:
+          of: Service
+      - equal:
+          path: metadata.name
+          value: test-release-package-tracker
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: package-tracker
+      - equal:
+          path: metadata.labels["app.kubernetes.io/instance"]
+          value: test-release
+      - equal:
+          path: spec.type
+          value: ClusterIP
+
+  - it: should include correct port configuration
+    template: service.yaml
+    set:
+      config:
+        server:
+          port: 8080
+      service:
+        port: 8080
+        targetPort: 8080
+    asserts:
+      - equal:
+          path: spec.ports[0].port
+          value: 8080
+      - equal:
+          path: spec.ports[0].targetPort
+          value: 8080
+      - equal:
+          path: spec.ports[0].protocol
+          value: TCP
+      - equal:
+          path: spec.ports[0].name
+          value: http
+
+  - it: should include correct selector labels
+    template: service.yaml
+    release:
+      name: test-release
+    asserts:
+      - equal:
+          path: spec.selector["app.kubernetes.io/name"]
+          value: package-tracker
+      - equal:
+          path: spec.selector["app.kubernetes.io/instance"]
+          value: test-release
+
+  - it: should support custom service type
+    template: service.yaml
+    set:
+      service:
+        type: NodePort
+    asserts:
+      - equal:
+          path: spec.type
+          value: NodePort
+
+  - it: should support custom service port
+    template: service.yaml
+    set:
+      service:
+        port: 9090
+        targetPort: 9090
+    asserts:
+      - equal:
+          path: spec.ports[0].port
+          value: 9090
+      - equal:
+          path: spec.ports[0].targetPort
+          value: 9090
+
+  - it: should include nodePort when service type is NodePort
+    template: service.yaml
+    set:
+      service:
+        type: NodePort
+        nodePort: 30080
+    asserts:
+      - equal:
+          path: spec.type
+          value: NodePort
+      - equal:
+          path: spec.ports[0].nodePort
+          value: 30080
+
+  - it: should include service annotations when specified
+    template: service.yaml
+    set:
+      service:
+        annotations:
+          service.beta.kubernetes.io/aws-load-balancer-type: nlb
+          custom.annotation/test: value
+    asserts:
+      - equal:
+          path: metadata.annotations["service.beta.kubernetes.io/aws-load-balancer-type"]
+          value: nlb
+      - equal:
+          path: metadata.annotations["custom.annotation/test"]
+          value: value
+
+  - it: should support LoadBalancer service type
+    template: service.yaml
+    set:
+      service:
+        type: LoadBalancer
+        loadBalancerIP: "192.168.1.100"
+    asserts:
+      - equal:
+          path: spec.type
+          value: LoadBalancer
+      - equal:
+          path: spec.loadBalancerIP
+          value: "192.168.1.100"
+
+  - it: should support multiple ports
+    template: service.yaml
+    set:
+      service:
+        ports:
+          - name: http
+            port: 8080
+            targetPort: 8080
+            protocol: TCP
+          - name: metrics
+            port: 9090
+            targetPort: 9090
+            protocol: TCP
+    asserts:
+      - equal:
+          path: spec.ports[0].name
+          value: http
+      - equal:
+          path: spec.ports[0].port
+          value: 8080
+      - equal:
+          path: spec.ports[1].name
+          value: metrics
+      - equal:
+          path: spec.ports[1].port
+          value: 9090
+
+  - it: should support sessionAffinity configuration
+    template: service.yaml
+    set:
+      service:
+        sessionAffinity: ClientIP
+        sessionAffinityConfig:
+          clientIP:
+            timeoutSeconds: 3600
+    asserts:
+      - equal:
+          path: spec.sessionAffinity
+          value: ClientIP
+      - equal:
+          path: spec.sessionAffinityConfig.clientIP.timeoutSeconds
+          value: 3600

@@ -1,0 +1,80 @@
+1. Get the application URL by running these commands:
+{{- if .Values.ingress.enabled }}
+{{- range $host := .Values.ingress.hosts }}
+  {{- range .paths }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}{{ .path }}
+  {{- end }}
+{{- end }}
+{{- else if contains "NodePort" .Values.service.type }}
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "package-tracker.fullname" . }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo http://$NODE_IP:$NODE_PORT
+{{- else if contains "LoadBalancer" .Values.service.type }}
+     NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+           You can watch the status of by running 'kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "package-tracker.fullname" . }}'
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "package-tracker.fullname" . }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+  echo http://$SERVICE_IP:{{ .Values.service.port }}
+{{- else if contains "ClusterIP" .Values.service.type }}
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "package-tracker.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+  export CONTAINER_PORT=$(kubectl get pod --namespace {{ .Release.Namespace }} $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
+  echo "Visit http://127.0.0.1:8080 to use your application"
+  kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8080:$CONTAINER_PORT
+{{- end }}
+
+2. Package Tracker Configuration:
+{{- if .Values.persistence.enabled }}
+  ✅ Persistent storage enabled ({{ .Values.persistence.size }})
+{{- if .Values.persistence.existingClaim }}
+  📦 Using existing PVC: {{ .Values.persistence.existingClaim }}
+{{- else }}
+  📦 Created new PVC: {{ include "package-tracker.fullname" . }}-data
+{{- end }}
+{{- else }}
+  ⚠️  Persistent storage disabled - data will be lost on pod restart
+{{- end }}
+
+{{- if .Values.email.enabled }}
+  📧 Email tracking enabled (checking every {{ .Values.email.checkInterval }})
+{{- else }}
+  📧 Email tracking disabled
+{{- end }}
+
+{{- $enabledCarriers := list }}
+{{- if .Values.config.carriers.usps.enabled }}{{ $enabledCarriers = append $enabledCarriers "USPS" }}{{ end }}
+{{- if .Values.config.carriers.ups.enabled }}{{ $enabledCarriers = append $enabledCarriers "UPS" }}{{ end }}
+{{- if .Values.config.carriers.fedex.enabled }}{{ $enabledCarriers = append $enabledCarriers "FedEx" }}{{ end }}
+{{- if .Values.config.carriers.dhl.enabled }}{{ $enabledCarriers = append $enabledCarriers "DHL" }}{{ end }}
+  🚚 Active carriers: {{ join ", " $enabledCarriers }}
+
+{{- if .Values.config.autoUpdate.enabled }}
+  🔄 Auto-update enabled (every {{ .Values.config.autoUpdate.interval }})
+{{- else }}
+  🔄 Auto-update disabled
+{{- end }}
+
+3. Health Check:
+  Once the pod is running, verify the application health:
+  curl -f http://localhost:8080/api/health
+
+4. Important Notes:
+  - This application uses SQLite and runs as a single replica
+  - Database files are stored in {{ .Values.config.database.path }}
+{{- if .Values.email.enabled }}
+  - Gmail OAuth must be configured separately for email tracking
+{{- end }}
+{{- if not .Values.persistence.enabled }}
+  - Enable persistence to avoid data loss: --set persistence.enabled=true
+{{- end }}
+
+5. Configuration Management:
+  - ConfigMap: {{ include "package-tracker.fullname" . }}-config
+  - Secret: {{ include "package-tracker.fullname" . }}-secrets
+  - Namespace: {{ .Release.Namespace }}
+
+6. Monitoring:
+  - Health endpoint: /api/health
+  - Server port: {{ .Values.config.server.port }}
+  - Log level: {{ .Values.config.server.logLevel }}
+
+For more information about package tracker configuration, visit:
+https://github.com/jhjaggars/package-tracker

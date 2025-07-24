@@ -1,0 +1,318 @@
+suite: test deployment template
+templates:
+  - deployment.yaml
+tests:
+  - it: should render deployment with default values
+    template: deployment.yaml
+    release:
+      name: test-release
+    asserts:
+      - isKind:
+          of: Deployment
+      - equal:
+          path: metadata.name
+          value: test-release-package-tracker
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: package-tracker
+      - equal:
+          path: metadata.labels["app.kubernetes.io/instance"]
+          value: test-release
+      - equal:
+          path: spec.replicas
+          value: 1
+
+  - it: should enforce single replica constraint
+    template: deployment.yaml
+    set:
+      replicaCount: 5  # Should be ignored
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 1
+
+  - it: should include correct pod template labels
+    template: deployment.yaml
+    release:
+      name: test-release
+    asserts:
+      - equal:
+          path: spec.template.metadata.labels["app.kubernetes.io/name"]
+          value: package-tracker
+      - equal:
+          path: spec.template.metadata.labels["app.kubernetes.io/instance"]
+          value: test-release
+
+  - it: should include security context with non-root user
+    template: deployment.yaml
+    set:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.runAsNonRoot
+          value: true
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 1000
+      - equal:
+          path: spec.template.spec.securityContext.runAsGroup
+          value: 1000
+      - equal:
+          path: spec.template.spec.securityContext.fsGroup
+          value: 1000
+
+  - it: should include container security context with read-only filesystem
+    template: deployment.yaml
+    set:
+      containerSecurityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop:
+            - ALL
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.allowPrivilegeEscalation
+          value: false
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: true
+      - contains:
+          path: spec.template.spec.containers[0].securityContext.capabilities.drop
+          content: ALL
+
+  - it: should include all health check probes
+    template: deployment.yaml
+    set:
+      probes:
+        startup:
+          enabled: true
+          httpGet:
+            path: /api/health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 30
+        readiness:
+          enabled: true
+          httpGet:
+            path: /api/health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+        liveness:
+          enabled: true
+          httpGet:
+            path: /api/health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.httpGet.path
+          value: /api/health
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.initialDelaySeconds
+          value: 10
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet.port
+          value: 8080
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.periodSeconds
+          value: 30
+
+  - it: should include resource limits and requests
+    template: deployment.yaml
+    set:
+      resources:
+        limits:
+          cpu: 1000m
+          memory: 1Gi
+        requests:
+          cpu: 500m
+          memory: 512Mi
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits.cpu
+          value: 1000m
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits.memory
+          value: 1Gi
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.cpu
+          value: 500m
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.memory
+          value: 512Mi
+
+  - it: should mount persistent volume when enabled
+    template: deployment.yaml
+    set:
+      persistence:
+        enabled: true
+        existingClaim: ""
+    release:
+      name: test-release
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: data
+            persistentVolumeClaim:
+              claimName: test-release-package-tracker-data
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: data
+            mountPath: /data
+
+  - it: should mount existing persistent volume claim when specified
+    template: deployment.yaml
+    set:
+      persistence:
+        enabled: true
+        existingClaim: "existing-pvc"
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: data
+            persistentVolumeClaim:
+              claimName: existing-pvc
+
+  - it: should include tmpfs volume for SQLite temporary files
+    template: deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: tmpfs
+            emptyDir:
+              medium: Memory
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: tmpfs
+            mountPath: /tmp
+
+  - it: should mount ConfigMap and Secret as environment variables
+    template: deployment.yaml
+    release:
+      name: test-release
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].envFrom
+          content:
+            configMapRef:
+              name: test-release-package-tracker-config
+      - contains:
+          path: spec.template.spec.containers[0].envFrom
+          content:
+            secretRef:
+              name: test-release-package-tracker-secrets
+
+  - it: should support node selector configuration
+    template: deployment.yaml
+    set:
+      nodeSelector:
+        kubernetes.io/arch: amd64
+        node-type: compute
+    asserts:
+      - equal:
+          path: spec.template.spec.nodeSelector["kubernetes.io/arch"]
+          value: amd64
+      - equal:
+          path: spec.template.spec.nodeSelector["node-type"]
+          value: compute
+
+  - it: should support tolerations configuration
+    template: deployment.yaml
+    set:
+      tolerations:
+        - key: "node-type"
+          operator: "Equal"
+          value: "compute"
+          effect: "NoSchedule"
+    asserts:
+      - contains:
+          path: spec.template.spec.tolerations
+          content:
+            key: "node-type"
+            operator: "Equal"
+            value: "compute"
+            effect: "NoSchedule"
+
+  - it: should support affinity configuration
+    template: deployment.yaml
+    set:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: "node-type"
+                    operator: "In"
+                    values: ["compute"]
+    asserts:
+      - equal:
+          path: spec.template.spec.affinity.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].weight
+          value: 100
+
+  - it: should use custom image configuration
+    template: deployment.yaml
+    set:
+      image:
+        repository: custom-registry/package-tracker
+        tag: v2.0.0
+        pullPolicy: Always
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: custom-registry/package-tracker:v2.0.0
+      - equal:
+          path: spec.template.spec.containers[0].imagePullPolicy
+          value: Always
+
+  - it: should handle external secret references for environment variables
+    template: deployment.yaml
+    set:
+      secrets:
+        externalSecrets:
+          USPS_API_KEY:
+            secretName: "external-usps-secret"
+            key: "api-key"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: USPS_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: external-usps-secret
+                key: api-key
+
+  - it: should include pod annotations when specified
+    template: deployment.yaml
+    set:
+      podAnnotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+    asserts:
+      - equal:
+          path: spec.template.metadata.annotations["prometheus.io/scrape"]
+          value: "true"
+      - equal:
+          path: spec.template.metadata.annotations["prometheus.io/port"]
+          value: "8080"

@@ -1,0 +1,62 @@
+suite: test namespace template
+templates:
+  - namespace.yaml
+tests:
+  - it: should render namespace with default values
+    template: namespace.yaml
+    release:
+      name: test-release
+      namespace: default
+    asserts:
+      - isKind:
+          of: Namespace
+      - equal:
+          path: metadata.name
+          value: default
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: package-tracker
+      - equal:
+          path: metadata.labels["app.kubernetes.io/instance"]
+          value: test-release
+      - equal:
+          path: metadata.labels["app.kubernetes.io/managed-by"]
+          value: Helm
+
+  - it: should render namespace with custom name
+    template: namespace.yaml
+    release:
+      name: test-release
+      namespace: custom-namespace
+    asserts:
+      - isKind:
+          of: Namespace
+      - equal:
+          path: metadata.name
+          value: custom-namespace
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: package-tracker
+      - equal:
+          path: metadata.labels["app.kubernetes.io/instance"]
+          value: test-release
+
+  - it: should include additional labels when specified
+    template: namespace.yaml
+    set:
+      namespaceLabels:
+        environment: production
+        team: logistics
+    release:
+      name: test-release
+      namespace: prod-namespace
+    asserts:
+      - equal:
+          path: metadata.labels.environment
+          value: production
+      - equal:
+          path: metadata.labels.team
+          value: logistics
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: package-tracker
