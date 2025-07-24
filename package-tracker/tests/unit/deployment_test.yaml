@@ -151,15 +151,11 @@ tests:
     set:
       resources:
         limits:
-          cpu: 1000m
           memory: 1Gi
         requests:
           cpu: 500m
           memory: 512Mi
     asserts:
-      - equal:
-          path: spec.template.spec.containers[0].resources.limits.cpu
-          value: 1000m
       - equal:
           path: spec.template.spec.containers[0].resources.limits.memory
           value: 1Gi
@@ -169,6 +165,8 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].resources.requests.memory
           value: 512Mi
+      - isNull:
+          path: spec.template.spec.containers[0].resources.limits.cpu
 
   - it: should mount persistent volume when enabled
     template: deployment.yaml
