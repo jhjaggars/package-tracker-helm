@@ -1,0 +1,13 @@
+{
+  "id": "helm-chart",
+  "started": "2025-07-23T20:31:00Z",
+  "lastUpdated": "2025-07-23T20:31:00Z",
+  "status": "active",
+  "phase": "complete",
+  "progress": {
+    "discovery": { "answered": 10, "total": 10 },
+    "detail": { "answered": 10, "total": 10 }
+  },
+  "contextFiles": [],
+  "relatedFeatures": []
+}
