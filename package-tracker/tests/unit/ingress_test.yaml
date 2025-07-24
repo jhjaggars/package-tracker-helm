@@ -1,0 +1,249 @@
+suite: test ingress template
+templates:
+  - ingress.yaml
+tests:
+  - it: should not render ingress when disabled
+    template: ingress.yaml
+    set:
+      ingress:
+        enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should render ingress when enabled with basic configuration
+    template: ingress.yaml
+    set:
+      ingress:
+        enabled: true
+        hosts:
+          - host: package-tracker.example.com
+            paths:
+              - path: /
+                pathType: Prefix
+    release:
+      name: test-release
+    asserts:
+      - isKind:
+          of: Ingress
+      - equal:
+          path: metadata.name
+          value: test-release-package-tracker
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: package-tracker
+      - equal:
+          path: metadata.labels["app.kubernetes.io/instance"]
+          value: test-release
+
+  - it: should include ingress class name when specified
+    template: ingress.yaml
+    set:
+      ingress:
+        enabled: true
+        className: nginx
+        hosts:
+          - host: test.example.com
+            paths:
+              - path: /
+                pathType: Prefix
+    asserts:
+      - equal:
+          path: spec.ingressClassName
+          value: nginx
+
+  - it: should include custom annotations
+    template: ingress.yaml
+    set:
+      ingress:
+        enabled: true
+        annotations:
+          nginx.ingress.kubernetes.io/ssl-redirect: "true"
+          nginx.ingress.kubernetes.io/rewrite-target: /
+          cert-manager.io/cluster-issuer: letsencrypt-prod
+        hosts:
+          - host: test.example.com
+            paths:
+              - path: /
+                pathType: Prefix
+    asserts:
+      - equal:
+          path: metadata.annotations["nginx.ingress.kubernetes.io/ssl-redirect"]
+          value: "true"
+      - equal:
+          path: metadata.annotations["nginx.ingress.kubernetes.io/rewrite-target"]
+          value: /
+      - equal:
+          path: metadata.annotations["cert-manager.io/cluster-issuer"]
+          value: letsencrypt-prod
+
+  - it: should include multiple hosts configuration
+    template: ingress.yaml
+    set:
+      ingress:
+        enabled: true
+        hosts:
+          - host: api.example.com
+            paths:
+              - path: /api
+                pathType: Prefix
+          - host: web.example.com
+            paths:
+              - path: /
+                pathType: Prefix
+              - path: /static
+                pathType: Prefix
+    release:
+      name: test-release
+    asserts:
+      - equal:
+          path: spec.rules[0].host
+          value: api.example.com
+      - equal:
+          path: spec.rules[0].http.paths[0].path
+          value: /api
+      - equal:
+          path: spec.rules[0].http.paths[0].pathType
+          value: Prefix
+      - equal:
+          path: spec.rules[1].host
+          value: web.example.com
+      - equal:
+          path: spec.rules[1].http.paths[0].path
+          value: /
+      - equal:
+          path: spec.rules[1].http.paths[1].path
+          value: /static
+
+  - it: should include TLS configuration
+    template: ingress.yaml
+    set:
+      ingress:
+        enabled: true
+        hosts:
+          - host: secure.example.com
+            paths:
+              - path: /
+                pathType: Prefix
+        tls:
+          - secretName: secure-tls
+            hosts:
+              - secure.example.com
+          - secretName: wildcard-tls
+            hosts:
+              - "*.example.com"
+    asserts:
+      - equal:
+          path: spec.tls[0].secretName
+          value: secure-tls
+      - contains:
+          path: spec.tls[0].hosts
+          content: secure.example.com
+      - equal:
+          path: spec.tls[1].secretName
+          value: wildcard-tls
+      - contains:
+          path: spec.tls[1].hosts
+          content: "*.example.com"
+
+  - it: should reference correct service and port
+    template: ingress.yaml
+    set:
+      ingress:
+        enabled: true
+        hosts:
+          - host: test.example.com
+            paths:
+              - path: /
+                pathType: Prefix
+      service:
+        port: 8080
+    release:
+      name: test-release
+    asserts:
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.name
+          value: test-release-package-tracker
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.port.number
+          value: 8080
+
+  - it: should support different ingress controller annotations
+    template: ingress.yaml
+    set:
+      ingress:
+        enabled: true
+        className: traefik
+        annotations:
+          traefik.ingress.kubernetes.io/router.entrypoints: websecure
+          traefik.ingress.kubernetes.io/router.tls.certresolver: letsencrypt
+        hosts:
+          - host: traefik.example.com
+            paths:
+              - path: /
+                pathType: Prefix
+    asserts:
+      - equal:
+          path: spec.ingressClassName
+          value: traefik
+      - equal:
+          path: metadata.annotations["traefik.ingress.kubernetes.io/router.entrypoints"]
+          value: websecure
+      - equal:
+          path: metadata.annotations["traefik.ingress.kubernetes.io/router.tls.certresolver"]
+          value: letsencrypt
+
+  - it: should handle empty TLS configuration
+    template: ingress.yaml
+    set:
+      ingress:
+        enabled: true
+        hosts:
+          - host: test.example.com
+            paths:
+              - path: /
+                pathType: Prefix
+        tls: []
+    asserts:
+      - notExists:
+          path: spec.tls
+
+  - it: should support custom path types
+    template: ingress.yaml
+    set:
+      ingress:
+        enabled: true
+        hosts:
+          - host: test.example.com
+            paths:
+              - path: /exact
+                pathType: Exact
+              - path: /prefix/*
+                pathType: ImplementationSpecific
+    asserts:
+      - equal:
+          path: spec.rules[0].http.paths[0].pathType
+          value: Exact
+      - equal:
+          path: spec.rules[0].http.paths[1].pathType
+          value: ImplementationSpecific
+
+  - it: should handle ingress without explicit hosts (catch-all)
+    template: ingress.yaml
+    set:
+      ingress:
+        enabled: true
+        hosts: []
+        defaultBackend:
+          service:
+            name: test-service
+            port: 80
+    asserts:
+      - isKind:
+          of: Ingress
+      - equal:
+          path: spec.defaultBackend.service.name
+          value: test-service
+      - equal:
+          path: spec.defaultBackend.service.port.number
+          value: 80

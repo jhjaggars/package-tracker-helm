@@ -1,0 +1,81 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "package-tracker.fullname" . }}-config
+  labels:
+    {{- include "package-tracker.labels" . | nindent 4 }}
+data:
+  # Server configuration
+  SERVER_HOST: {{ .Values.config.server.host | quote }}
+  SERVER_PORT: {{ .Values.config.server.port | quote }}
+  LOG_LEVEL: {{ .Values.config.server.logLevel | quote }}
+  DEBUG: {{ .Values.config.server.debug | quote }}
+
+  # Database configuration
+  DATABASE_PATH: {{ .Values.config.database.path | quote }}
+  EMAIL_STATE_DATABASE_PATH: {{ .Values.config.database.emailStatePath | quote }}
+  DATABASE_BACKUP_INTERVAL: {{ .Values.config.database.backupInterval | quote }}
+  SQLITE_JOURNAL_MODE: {{ .Values.config.database.pragmas.journalMode | quote }}
+  SQLITE_SYNCHRONOUS: {{ .Values.config.database.pragmas.synchronous | quote }}
+
+  # Auto-update configuration
+  AUTO_UPDATE_ENABLED: {{ .Values.config.autoUpdate.enabled | quote }}
+  AUTO_UPDATE_INTERVAL: {{ .Values.config.autoUpdate.interval | quote }}
+  AUTO_UPDATE_MAX_RETRIES: {{ .Values.config.autoUpdate.maxRetries | quote }}
+  AUTO_UPDATE_TIMEOUT: {{ .Values.config.autoUpdate.timeout | quote }}
+  AUTO_UPDATE_CONCURRENCY: {{ .Values.config.autoUpdate.concurrency | quote }}
+
+  # Cache configuration
+  CACHE_ENABLED: {{ .Values.config.cache.enabled | quote }}
+  CACHE_SIZE: {{ .Values.config.cache.size | quote }}
+  CACHE_TTL: {{ .Values.config.cache.ttl | quote }}
+  CACHE_CLEANUP_INTERVAL: {{ .Values.config.cache.cleanupInterval | quote }}
+
+  # Chrome configuration
+  CHROME_ENABLED: {{ .Values.config.chrome.enabled | quote }}
+  CHROME_BINARY_PATH: {{ .Values.config.chrome.binaryPath | quote }}
+  CHROME_HEADLESS: {{ .Values.config.chrome.headless | quote }}
+  {{- if .Values.config.chrome.args }}
+  CHROME_ARGS: {{ join "," .Values.config.chrome.args | quote }}
+  {{- end }}
+
+  # Carrier configuration
+  USPS_ENABLED: {{ .Values.config.carriers.usps.enabled | quote }}
+  USPS_BASE_URL: {{ .Values.config.carriers.usps.baseUrl | quote }}
+  USPS_TIMEOUT: {{ .Values.config.carriers.usps.timeout | quote }}
+  
+  UPS_ENABLED: {{ .Values.config.carriers.ups.enabled | quote }}
+  UPS_BASE_URL: {{ .Values.config.carriers.ups.baseUrl | quote }}
+  UPS_TIMEOUT: {{ .Values.config.carriers.ups.timeout | quote }}
+  
+  FEDEX_ENABLED: {{ .Values.config.carriers.fedex.enabled | quote }}
+  FEDEX_BASE_URL: {{ .Values.config.carriers.fedex.baseUrl | quote }}
+  FEDEX_TIMEOUT: {{ .Values.config.carriers.fedex.timeout | quote }}
+  
+  DHL_ENABLED: {{ .Values.config.carriers.dhl.enabled | quote }}
+  DHL_BASE_URL: {{ .Values.config.carriers.dhl.baseUrl | quote }}
+  DHL_TIMEOUT: {{ .Values.config.carriers.dhl.timeout | quote }}
+
+  # Email configuration (conditional)
+  {{- if .Values.email.enabled }}
+  EMAIL_CHECK_INTERVAL: {{ .Values.email.checkInterval | quote }}
+  EMAIL_SCAN_DAYS: {{ .Values.email.scanDays | quote }}
+  EMAIL_DRY_RUN: {{ .Values.email.dryRun | quote }}
+  {{- if .Values.email.subjectFilters }}
+  EMAIL_SUBJECT_FILTERS: {{ join "," .Values.email.subjectFilters | quote }}
+  {{- end }}
+  {{- end }}
+
+  # Notification configuration
+  NOTIFICATIONS_ENABLED: {{ .Values.config.notifications.enabled | quote }}
+  {{- if .Values.config.notifications.webhookUrl }}
+  WEBHOOK_URL: {{ .Values.config.notifications.webhookUrl | quote }}
+  {{- end }}
+  {{- if .Values.config.notifications.channels }}
+  NOTIFICATION_CHANNELS: {{ join "," .Values.config.notifications.channels | quote }}
+  {{- end }}
+
+  # Custom environment variables
+  {{- with .Values.config.customEnvVars }}
+  {{- toYaml . | nindent 2 }}
+  {{- end }}

@@ -1,0 +1,274 @@
+suite: test configmap template
+templates:
+  - configmap.yaml
+tests:
+  - it: should render configmap with default values
+    template: configmap.yaml
+    release:
+      name: test-release
+    asserts:
+      - isKind:
+          of: ConfigMap
+      - equal:
+          path: metadata.name
+          value: test-release-package-tracker-config
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: package-tracker
+      - equal:
+          path: metadata.labels["app.kubernetes.io/instance"]
+          value: test-release
+
+  - it: should include all server configuration variables
+    template: configmap.yaml
+    set:
+      config:
+        server:
+          host: "0.0.0.0"
+          port: 8080
+          logLevel: "info"
+          debug: false
+    asserts:
+      - equal:
+          path: data.SERVER_HOST
+          value: "0.0.0.0"
+      - equal:
+          path: data.SERVER_PORT
+          value: "8080"
+      - equal:
+          path: data.LOG_LEVEL
+          value: "info"
+      - equal:
+          path: data.DEBUG
+          value: "false"
+
+  - it: should include all database configuration variables
+    template: configmap.yaml
+    set:
+      config:
+        database:
+          path: "/data/database.db"
+          emailStatePath: "/data/email-state.db"
+          backupInterval: "24h"
+          pragmas:
+            journalMode: "WAL"
+            synchronous: "NORMAL"
+    asserts:
+      - equal:
+          path: data.DATABASE_PATH
+          value: "/data/database.db"
+      - equal:
+          path: data.EMAIL_STATE_DATABASE_PATH
+          value: "/data/email-state.db"
+      - equal:
+          path: data.DATABASE_BACKUP_INTERVAL
+          value: "24h"
+      - equal:
+          path: data.SQLITE_JOURNAL_MODE
+          value: "WAL"
+      - equal:
+          path: data.SQLITE_SYNCHRONOUS
+          value: "NORMAL"
+
+  - it: should include all auto-update configuration variables
+    template: configmap.yaml
+    set:
+      config:
+        autoUpdate:
+          enabled: true
+          interval: "1h"
+          maxRetries: 3
+          timeout: "30s"
+          concurrency: 5
+    asserts:
+      - equal:
+          path: data.AUTO_UPDATE_ENABLED
+          value: "true"
+      - equal:
+          path: data.AUTO_UPDATE_INTERVAL
+          value: "1h"
+      - equal:
+          path: data.AUTO_UPDATE_MAX_RETRIES
+          value: "3"
+      - equal:
+          path: data.AUTO_UPDATE_TIMEOUT
+          value: "30s"
+      - equal:
+          path: data.AUTO_UPDATE_CONCURRENCY
+          value: "5"
+
+  - it: should include all cache configuration variables
+    template: configmap.yaml
+    set:
+      config:
+        cache:
+          enabled: true
+          size: "100MB"
+          ttl: "1h"
+          cleanupInterval: "10m"
+    asserts:
+      - equal:
+          path: data.CACHE_ENABLED
+          value: "true"
+      - equal:
+          path: data.CACHE_SIZE
+          value: "100MB"
+      - equal:
+          path: data.CACHE_TTL
+          value: "1h"
+      - equal:
+          path: data.CACHE_CLEANUP_INTERVAL
+          value: "10m"
+
+  - it: should include chrome configuration variables
+    template: configmap.yaml
+    set:
+      config:
+        chrome:
+          enabled: true
+          binaryPath: "/usr/bin/chromium"
+          headless: true
+          args:
+            - "--no-sandbox"
+            - "--disable-dev-shm-usage"
+    asserts:
+      - equal:
+          path: data.CHROME_ENABLED
+          value: "true"
+      - equal:
+          path: data.CHROME_BINARY_PATH
+          value: "/usr/bin/chromium"
+      - equal:
+          path: data.CHROME_HEADLESS
+          value: "true"
+      - equal:
+          path: data.CHROME_ARGS
+          value: "--no-sandbox,--disable-dev-shm-usage"
+
+  - it: should include carrier-specific configuration
+    template: configmap.yaml
+    set:
+      config:
+        carriers:
+          usps:
+            enabled: true
+            baseUrl: "https://tools.usps.com/go/TrackConfirmAction"
+            timeout: "30s"
+          ups:
+            enabled: true
+            baseUrl: "https://onlinetools.ups.com/track/v1"
+            timeout: "30s"
+          fedex:
+            enabled: true
+            baseUrl: "https://www.fedex.com/trackingCal/track"
+            timeout: "30s"
+          dhl:
+            enabled: true
+            baseUrl: "https://www.dhl.com/us-en/home/tracking"
+            timeout: "30s"
+    asserts:
+      - equal:
+          path: data.USPS_ENABLED
+          value: "true"
+      - equal:
+          path: data.USPS_BASE_URL
+          value: "https://tools.usps.com/go/TrackConfirmAction"
+      - equal:
+          path: data.USPS_TIMEOUT
+          value: "30s"
+      - equal:
+          path: data.UPS_ENABLED
+          value: "true"
+      - equal:
+          path: data.UPS_BASE_URL
+          value: "https://onlinetools.ups.com/track/v1"
+      - equal:
+          path: data.FEDEX_ENABLED
+          value: "true"
+      - equal:
+          path: data.DHL_ENABLED
+          value: "true"
+
+  - it: should conditionally include email configuration when enabled
+    template: configmap.yaml
+    set:
+      email:
+        enabled: true
+        checkInterval: "30m"
+        scanDays: 7
+        dryRun: false
+        subjectFilters:
+          - "tracking"
+          - "shipment"
+    asserts:
+      - equal:
+          path: data.EMAIL_CHECK_INTERVAL
+          value: "30m"
+      - equal:
+          path: data.EMAIL_SCAN_DAYS
+          value: "7"
+      - equal:
+          path: data.EMAIL_DRY_RUN
+          value: "false"
+      - equal:
+          path: data.EMAIL_SUBJECT_FILTERS
+          value: "tracking,shipment"
+
+  - it: should not include email configuration when disabled
+    template: configmap.yaml
+    set:
+      email:
+        enabled: false
+    asserts:
+      - notExists:
+          path: data.EMAIL_CHECK_INTERVAL
+      - notExists:
+          path: data.EMAIL_SCAN_DAYS
+      - notExists:
+          path: data.EMAIL_DRY_RUN
+
+  - it: should include notification configuration
+    template: configmap.yaml
+    set:
+      config:
+        notifications:
+          enabled: true
+          webhookUrl: "https://hooks.slack.com/services/..."
+          channels:
+            - "general"
+            - "logistics"
+    asserts:
+      - equal:
+          path: data.NOTIFICATIONS_ENABLED
+          value: "true"
+      - equal:
+          path: data.WEBHOOK_URL
+          value: "https://hooks.slack.com/services/..."
+      - equal:
+          path: data.NOTIFICATION_CHANNELS
+          value: "general,logistics"
+
+  - it: should handle custom configuration overrides
+    template: configmap.yaml
+    set:
+      config:
+        server:
+          port: 9090
+        database:
+          path: "/custom/path/db.sqlite"
+        customEnvVars:
+          CUSTOM_VAR1: "value1"
+          CUSTOM_VAR2: "value2"
+    asserts:
+      - equal:
+          path: data.SERVER_PORT
+          value: "9090"
+      - equal:
+          path: data.DATABASE_PATH
+          value: "/custom/path/db.sqlite"
+      - equal:
+          path: data.CUSTOM_VAR1
+          value: "value1"
+      - equal:
+          path: data.CUSTOM_VAR2
+          value: "value2"

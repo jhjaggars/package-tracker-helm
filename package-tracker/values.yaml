@@ -1,0 +1,361 @@
+# Default values for package-tracker.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# -- Override chart name
+nameOverride: ""
+# -- Override full name
+fullnameOverride: ""
+
+# Image configuration
+image:
+  # -- Container image repository
+  repository: package-tracker
+  # -- Container image pull policy
+  pullPolicy: Always
+  # -- Container image tag (defaults to chart appVersion if not set)
+  tag: ""
+
+# -- Image pull secrets for private registries
+imagePullSecrets: []
+
+# Service account configuration
+serviceAccount:
+  # -- Specifies whether a service account should be created
+  create: true
+  # -- Annotations to add to the service account
+  annotations: {}
+  # -- The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+# -- Annotations to add to pods
+podAnnotations: {}
+
+# Pod security context
+securityContext:
+  # -- Run as non-root user
+  runAsNonRoot: true
+  # -- User ID to run the container as
+  runAsUser: 1000
+  # -- Group ID to run the container as
+  runAsGroup: 1000
+  # -- File system group ID
+  fsGroup: 1000
+  # -- Seccomp profile
+  seccompProfile:
+    type: RuntimeDefault
+
+# Container security context
+containerSecurityContext:
+  # -- Prevent privilege escalation
+  allowPrivilegeEscalation: false
+  # -- Run with read-only root filesystem
+  readOnlyRootFilesystem: true
+  # -- Drop all capabilities
+  capabilities:
+    drop:
+      - ALL
+
+# Service configuration
+service:
+  # -- Service type
+  type: ClusterIP
+  # -- Service port
+  port: 8080
+  # -- Target port (defaults to config.server.port)
+  targetPort: ""
+  # -- Node port (only applies when service.type is NodePort)
+  nodePort: ""
+  # -- Load balancer IP (only applies when service.type is LoadBalancer)
+  loadBalancerIP: ""
+  # -- Session affinity
+  sessionAffinity: ""
+  # -- Session affinity configuration
+  sessionAffinityConfig: {}
+  # -- Service annotations
+  annotations: {}
+  # -- Additional service ports (overrides default port configuration if set)
+  ports: []
+
+# Ingress configuration
+ingress:
+  # -- Enable ingress
+  enabled: false
+  # -- Ingress class name
+  className: ""
+  # -- Ingress annotations
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+    # nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  # -- Ingress hosts configuration
+  hosts: []
+    # - host: package-tracker.example.com
+    #   paths:
+    #     - path: /
+    #       pathType: Prefix
+  # -- Ingress TLS configuration
+  tls: []
+    # - secretName: package-tracker-tls
+    #   hosts:
+    #     - package-tracker.example.com
+  # -- Default backend configuration (for catch-all rules)
+  defaultBackend: {}
+
+# Resource limits and requests
+resources:
+  # -- Resource limits
+  limits:
+    memory: 512Mi
+  # -- Resource requests
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+# Health check probes
+probes:
+  # Startup probe configuration
+  startup:
+    # -- Enable startup probe
+    enabled: true
+    # -- HTTP GET configuration
+    httpGet:
+      path: /api/health
+    # -- Initial delay in seconds
+    initialDelaySeconds: 10
+    # -- Period in seconds
+    periodSeconds: 10
+    # -- Timeout in seconds
+    timeoutSeconds: 3
+    # -- Failure threshold
+    failureThreshold: 30
+  # Readiness probe configuration
+  readiness:
+    # -- Enable readiness probe
+    enabled: true
+    # -- HTTP GET configuration
+    httpGet:
+      path: /api/health
+    # -- Initial delay in seconds
+    initialDelaySeconds: 5
+    # -- Period in seconds
+    periodSeconds: 10
+    # -- Timeout in seconds
+    timeoutSeconds: 3
+    # -- Failure threshold
+    failureThreshold: 3
+  # Liveness probe configuration
+  liveness:
+    # -- Enable liveness probe
+    enabled: true
+    # -- HTTP GET configuration
+    httpGet:
+      path: /api/health
+    # -- Initial delay in seconds
+    initialDelaySeconds: 30
+    # -- Period in seconds
+    periodSeconds: 30
+    # -- Timeout in seconds
+    timeoutSeconds: 5
+    # -- Failure threshold
+    failureThreshold: 3
+
+# Persistence configuration
+persistence:
+  # -- Enable persistent storage
+  enabled: true
+  # -- Existing PVC name (if set, no new PVC will be created)
+  existingClaim: ""
+  # -- Storage class name
+  storageClass: ""
+  # -- Access modes
+  accessModes:
+    - ReadWriteOnce
+  # -- Storage size
+  size: 10Gi
+  # -- PVC annotations
+  annotations: {}
+
+# Application configuration
+config:
+  # Server configuration
+  server:
+    # -- Server host
+    host: "0.0.0.0"
+    # -- Server port
+    port: 8080
+    # -- Log level
+    logLevel: "info"
+    # -- Debug mode
+    debug: false
+
+  # Database configuration
+  database:
+    # -- Database file path
+    path: "/data/database.db"
+    # -- Email state database path
+    emailStatePath: "/data/email-state.db"
+    # -- Database backup interval
+    backupInterval: "24h"
+    # SQLite pragma settings
+    pragmas:
+      # -- SQLite journal mode
+      journalMode: "WAL"
+      # -- SQLite synchronous mode
+      synchronous: "NORMAL"
+
+  # Auto-update configuration
+  autoUpdate:
+    # -- Enable auto-update
+    enabled: true
+    # -- Update interval
+    interval: "1h"
+    # -- Maximum retries
+    maxRetries: 3
+    # -- Request timeout
+    timeout: "30s"
+    # -- Concurrency level
+    concurrency: 5
+
+  # Cache configuration
+  cache:
+    # -- Enable caching
+    enabled: true
+    # -- Cache size
+    size: "100MB"
+    # -- Cache TTL
+    ttl: "1h"
+    # -- Cache cleanup interval
+    cleanupInterval: "10m"
+
+  # Chrome/Chromium configuration
+  chrome:
+    # -- Enable Chrome browser
+    enabled: true
+    # -- Chrome binary path
+    binaryPath: "/usr/bin/chromium"
+    # -- Run in headless mode
+    headless: true
+    # -- Chrome arguments
+    args:
+      - "--no-sandbox"
+      - "--disable-dev-shm-usage"
+      - "--disable-gpu"
+      - "--disable-background-timer-throttling"
+      - "--disable-backgrounding-occluded-windows"
+      - "--disable-renderer-backgrounding"
+
+  # Carrier-specific configuration
+  carriers:
+    # USPS configuration
+    usps:
+      # -- Enable USPS tracking
+      enabled: true
+      # -- USPS base URL
+      baseUrl: "https://tools.usps.com/go/TrackConfirmAction"
+      # -- Request timeout
+      timeout: "30s"
+    # UPS configuration
+    ups:
+      # -- Enable UPS tracking
+      enabled: true
+      # -- UPS base URL
+      baseUrl: "https://onlinetools.ups.com/track/v1"
+      # -- Request timeout
+      timeout: "30s"
+    # FedEx configuration
+    fedex:
+      # -- Enable FedEx tracking
+      enabled: true
+      # -- FedEx base URL
+      baseUrl: "https://www.fedex.com/trackingCal/track"
+      # -- Request timeout
+      timeout: "30s"
+    # DHL configuration
+    dhl:
+      # -- Enable DHL tracking
+      enabled: true
+      # -- DHL base URL
+      baseUrl: "https://www.dhl.com/us-en/home/tracking"
+      # -- Request timeout
+      timeout: "30s"
+
+  # Notification configuration
+  notifications:
+    # -- Enable notifications
+    enabled: false
+    # -- Webhook URL
+    webhookUrl: ""
+    # -- Notification channels
+    channels: []
+
+  # Custom environment variables
+  customEnvVars: {}
+
+# Secret configuration
+secrets:
+  # -- Admin API key
+  adminApiKey: ""
+  # -- USPS API key
+  uspsApiKey: ""
+  # -- UPS client ID
+  upsClientId: ""
+  # -- UPS client secret
+  upsClientSecret: ""
+  # -- FedEx API key
+  fedexApiKey: ""
+  # -- FedEx secret key
+  fedexSecretKey: ""
+  # -- DHL API key
+  dhlApiKey: ""
+  
+  # External secret references (alternative to inline secrets)
+  externalSecrets: {}
+    # uspsApiKey:
+    #   secretName: "external-usps-secret"
+    #   key: "api-key"
+    # adminApiKey:
+    #   secretName: "external-admin-secret"
+    #   key: "admin-key"
+
+  # Custom secrets
+  customSecrets: {}
+
+# Email tracking configuration (optional)
+email:
+  # -- Enable email tracking
+  enabled: false
+  # -- Email check interval
+  checkInterval: "30m"
+  # -- Number of days to scan
+  scanDays: 7
+  # -- Dry run mode (don't actually process)
+  dryRun: false
+  # -- Email subject filters
+  subjectFilters: []
+    # - "tracking"
+    # - "shipment"
+    # - "delivery"
+  
+  # Gmail OAuth configuration (required when email.enabled is true)
+  gmailOauth:
+    # -- Gmail OAuth client ID
+    clientId: ""
+    # -- Gmail OAuth client secret
+    clientSecret: ""
+    # -- Gmail OAuth refresh token
+    refreshToken: ""
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity rules
+affinity: {}
+
+# Namespace labels
+namespaceLabels: {}

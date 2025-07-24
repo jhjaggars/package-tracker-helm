@@ -1,0 +1,152 @@
+suite: test pvc template
+templates:
+  - pvc.yaml
+tests:
+  - it: should render pvc when persistence is enabled and no existing claim
+    template: pvc.yaml
+    set:
+      persistence:
+        enabled: true
+        existingClaim: ""
+        size: 10Gi
+        storageClass: ""
+    release:
+      name: test-release
+    asserts:
+      - isKind:
+          of: PersistentVolumeClaim
+      - equal:
+          path: metadata.name
+          value: test-release-package-tracker-data
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: package-tracker
+      - equal:
+          path: metadata.labels["app.kubernetes.io/instance"]
+          value: test-release
+      - equal:
+          path: spec.accessModes[0]
+          value: ReadWriteOnce
+      - equal:
+          path: spec.resources.requests.storage
+          value: 10Gi
+
+  - it: should not render pvc when persistence is disabled
+    template: pvc.yaml
+    set:
+      persistence:
+        enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should not render pvc when existing claim is specified
+    template: pvc.yaml
+    set:
+      persistence:
+        enabled: true
+        existingClaim: "existing-pvc"
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should render pvc with custom storage class
+    template: pvc.yaml
+    set:
+      persistence:
+        enabled: true
+        existingClaim: ""
+        size: 20Gi
+        storageClass: "fast-ssd"
+    release:
+      name: test-release
+    asserts:
+      - isKind:
+          of: PersistentVolumeClaim
+      - equal:
+          path: spec.storageClassName
+          value: "fast-ssd"
+      - equal:
+          path: spec.resources.requests.storage
+          value: 20Gi
+
+  - it: should render pvc with custom access modes
+    template: pvc.yaml
+    set:
+      persistence:
+        enabled: true
+        existingClaim: ""
+        accessModes:
+          - ReadWriteOnce
+          - ReadOnlyMany
+    release:
+      name: test-release
+    asserts:
+      - equal:
+          path: spec.accessModes[0]
+          value: ReadWriteOnce
+      - equal:
+          path: spec.accessModes[1]
+          value: ReadOnlyMany
+
+  - it: should render pvc without storage class when empty
+    template: pvc.yaml
+    set:
+      persistence:
+        enabled: true
+        existingClaim: ""
+        storageClass: ""
+    release:
+      name: test-release
+    asserts:
+      - isKind:
+          of: PersistentVolumeClaim
+      - notExists:
+          path: spec.storageClassName
+
+  - it: should render pvc with annotations when specified
+    template: pvc.yaml
+    set:
+      persistence:
+        enabled: true
+        existingClaim: ""
+        annotations:
+          volume.alpha.kubernetes.io/storage-class: "manual"
+          custom.annotation/test: "value"
+    release:
+      name: test-release
+    asserts:
+      - equal:
+          path: metadata.annotations["volume.alpha.kubernetes.io/storage-class"]
+          value: "manual"
+      - equal:
+          path: metadata.annotations["custom.annotation/test"]
+          value: "value"
+
+  - it: should handle large storage sizes correctly
+    template: pvc.yaml
+    set:
+      persistence:
+        enabled: true
+        existingClaim: ""
+        size: 100Gi
+    release:
+      name: test-release
+    asserts:
+      - equal:
+          path: spec.resources.requests.storage
+          value: 100Gi
+
+  - it: should use default access mode when not specified
+    template: pvc.yaml
+    set:
+      persistence:
+        enabled: true
+        existingClaim: ""
+        accessModes: []
+    release:
+      name: test-release
+    asserts:
+      - equal:
+          path: spec.accessModes[0]
+          value: ReadWriteOnce
