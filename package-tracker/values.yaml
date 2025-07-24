@@ -108,7 +108,7 @@ ingress:
 resources:
   # -- Resource limits
   limits:
-    cpu: 500m
+    cpu: 1000m
     memory: 512Mi
   # -- Resource requests
   requests:
@@ -124,7 +124,6 @@ probes:
     # -- HTTP GET configuration
     httpGet:
       path: /api/health
-      port: 8080
     # -- Initial delay in seconds
     initialDelaySeconds: 10
     # -- Period in seconds
@@ -140,7 +139,6 @@ probes:
     # -- HTTP GET configuration
     httpGet:
       path: /api/health
-      port: 8080
     # -- Initial delay in seconds
     initialDelaySeconds: 5
     # -- Period in seconds
@@ -156,7 +154,6 @@ probes:
     # -- HTTP GET configuration
     httpGet:
       path: /api/health
-      port: 8080
     # -- Initial delay in seconds
     initialDelaySeconds: 30
     # -- Period in seconds

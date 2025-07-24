@@ -95,7 +95,6 @@ tests:
           enabled: true
           httpGet:
             path: /api/health
-            port: 8080
           initialDelaySeconds: 10
           periodSeconds: 10
           timeoutSeconds: 3
@@ -104,7 +103,6 @@ tests:
           enabled: true
           httpGet:
             path: /api/health
-            port: 8080
           initialDelaySeconds: 5
           periodSeconds: 10
           timeoutSeconds: 3
@@ -113,7 +111,6 @@ tests:
           enabled: true
           httpGet:
             path: /api/health
-            port: 8080
           initialDelaySeconds: 30
           periodSeconds: 30
           timeoutSeconds: 5
@@ -131,6 +128,23 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].livenessProbe.periodSeconds
           value: 30
+
+  - it: should use config server port for probes
+    template: deployment.yaml
+    set:
+      config:
+        server:
+          port: 3000
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.httpGet.port
+          value: 3000
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet.port
+          value: 3000
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet.port
+          value: 3000
 
   - it: should include resource limits and requests
     template: deployment.yaml
